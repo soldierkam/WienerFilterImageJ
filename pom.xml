@@ -4,12 +4,17 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>pl.edu.pw.elka.cpoo</groupId>
-    <artifactId>Wiena_Filter</artifactId>
+    <artifactId>Wiener_Filter</artifactId>
     <version>1.0</version>
     <packaging>jar</packaging>
 
-    <name>Wiena_Filter</name>
+    <name>Wiener_Filter</name>
     <url>http://maven.apache.org</url>
+
+    <scm>     
+        <connection>scm:git:https://soldierkam@github.com/soldierkam/WienerFilterImageJ.git</connection> 
+        <url>https://soldierkam@github.com/soldierkam/WienerFilterImageJ.git</url> 
+    </scm>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -38,6 +43,11 @@
             <artifactId>slf4j-log4j12</artifactId>
             <version>1.6.4</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.1</version>
+        </dependency>
             
     </dependencies>
     <repositories>
@@ -46,4 +56,35 @@
             <url>http://mbari-maven-repository.googlecode.com/svn/repository/</url>
         </repository>
     </repositories>
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>2.3.2</version>
+                <configuration>
+                    <source>1.7</source>
+                    <target>1.7</target>
+                </configuration>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <descriptorRefs>
+                        <descriptorRef>jar-with-dependencies</descriptorRef>
+                    </descriptorRefs>
+                    
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>make-my-jar-with-dependencies</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>        
+    </build>
 </project>

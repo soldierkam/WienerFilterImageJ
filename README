@@ -1,0 +1,4 @@
+1.Kompilujemy (mvn install).
+2.Tworzymy link z /home/$USER/.m2/repository/pl/edu/pw/elka/cpoo/Wiener_Filter/1.0/Wiener_Filter-1.0-jar-with-dependencies.jar 
+ do /home/soldier/.imagej/plugins/Wiener_Filter-1.0-jar-with-dependencies.jar lub kopiujemy wynikowy jar do katalogu z wtyczkami.
+3.Uruchamiamy ImageJ.
