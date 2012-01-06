@@ -52,7 +52,7 @@ public class Main implements PlugInFilter, Measurements {
 
         int x = fft.getWidth();
         int y = fft.getHeight();
-
+        double sigmaPower = Math.pow(sigma, 2);
         FloatProcessor h = new FloatProcessor(x, y);
 
         double[][] table = new double[10][10];
@@ -61,10 +61,10 @@ public class Main implements PlugInFilter, Measurements {
                 table[i][j] = ht[i][j] / 16;
             }
         }
-        this.setFloatPixels(h, table);
+        setFloatPixels(h, table);
 
-        double[][] Yf = this.getFloatPixels(fft);
-        double[][] Hf = this.getFloatPixels(new FFTUtilImpl(0).doFFT(h));
+        double[][] Yf = getFloatPixels(fft);
+        double[][] Hf = getFloatPixels(new FFTUtilImpl(0).doFFT(h));
 
         double[][] sHf = new double[x][y];
         double[][] iHf = new double[x][y];
@@ -75,6 +75,8 @@ public class Main implements PlugInFilter, Measurements {
 
         for (int i = 0; i < x; ++i) {
             for (int j = 0; j < y; ++j) {
+                
+                //sHf = Hf.*(abs(Hf)>0)+1/gamma*(abs(Hf)==0);
                 if (Hf[i][j] == 0 || Hf[i][j] < 0) {
                     sHf[i][j] = 1 / gamma;
                 } else {
@@ -82,22 +84,26 @@ public class Main implements PlugInFilter, Measurements {
                 }
                 iHf[i][j] = 1 / sHf[i][j];
 
+                //iHf = iHf.*(abs(Hf)*gamma>1)+gamma*abs(sHf).*iHf.*(abs(sHf)*gamma<=1); 
                 if (Math.abs(Hf[i][j]) * gamma > 1) {
-                    iHf[i][j] = iHf[i][j] * Hf[i][j];
+                    //iHf[i][j] = iHf[i][j] * Hf[i][j];
                 } else {
-                    iHf[i][j] = iHf[i][j] * gamma * Math.abs(sHf[i][j]);
-
-                    Pyf[i][j] = Math.pow(Math.abs(Yf[i][j]), 2) / x * x;
-                    
-                    if (Pyf[i][j] > Math.pow(sigma, 2)) {
-                    } else {
-                        Pyf[i][j] = Pyf[i][j] * sigma * sigma;
-                    }
-                    Gf[i][j] = (iHf[i][j] * (Pyf[i][j] - (sigma * sigma)))
-                            / (Pyf[i][j] - ((1 - alpha) * sigma * sigma));
-
-                    eXf[i][j] = Gf[i][j] * Yf[i][j];
+                    iHf[i][j] = gamma * Math.abs(sHf[i][j]) * iHf[i][j];
                 }
+
+                //Pyf = abs(Yf).^2/SIZE^2;
+                Pyf[i][j] = Math.pow(Math.abs(Yf[i][j]), 2) / (x * x);
+
+                //Pyf = Pyf.*(Pyf>sigma^2)+sigma^2*(Pyf<=sigma^2);
+                if (Pyf[i][j] > sigmaPower) {
+                } else {
+                    Pyf[i][j] = Pyf[i][j] * sigmaPower;
+                }
+                //Gf = iHf.*(Pyf-sigma^2)./(Pyf-(1-alpha)*sigma^2);
+                Gf[i][j] = (iHf[i][j] * (Pyf[i][j] - sigmaPower))
+                        / (Pyf[i][j] - ((1 - alpha) * sigmaPower));
+
+                eXf[i][j] = Gf[i][j] * Yf[i][j];
 
             }
         }
@@ -117,7 +123,7 @@ public class Main implements PlugInFilter, Measurements {
          * sHf = Hf.*(abs(Hf)>0)+1/gamma*(abs(Hf)==0); wartosci z 0 +1
          */
 
-        this.setFloatPixels(fft, eXf);
+        setFloatPixels(fft, eXf);
         return fft;
 
     }
@@ -154,7 +160,7 @@ public class Main implements PlugInFilter, Measurements {
         debug = gd.getNextBoolean();
     }
 
-    protected double[][] getFloatPixels(FloatProcessor ip) {
+    static protected double[][] getFloatPixels(FloatProcessor ip) {
         float[] pix = (float[]) ip.getPixels();
         double[][] pix2d = new double[ip.getWidth()][ip.getHeight()];
         for (int j = 0; j < ip.getHeight(); j++) {
@@ -167,7 +173,7 @@ public class Main implements PlugInFilter, Measurements {
     }
 
     /* set block of float pixels */
-    protected void setFloatPixels(FloatProcessor ip, double[][] dp) {
+    static protected void setFloatPixels(FloatProcessor ip, double[][] dp) {
         FloatProcessor fp = new FloatProcessor(dp.length, dp[0].length);
         float[] pix = new float[dp.length * dp[0].length];
         for (int j = 0; j < dp.length; j++) {
