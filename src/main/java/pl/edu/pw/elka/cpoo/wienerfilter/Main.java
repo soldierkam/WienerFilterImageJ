@@ -77,7 +77,7 @@ public class Main implements PlugInFilter, Measurements {
             for (int j = 0; j < y; ++j) {
                 
                 //sHf = Hf.*(abs(Hf)>0)+1/gamma*(abs(Hf)==0);
-                if (Hf[i][j] == 0 || Hf[i][j] < 0) {
+                if (Hf[i][j] == 0) {
                     sHf[i][j] = 1 / gamma;
                 } else {
                     sHf[i][j] = Hf[i][j];
@@ -97,7 +97,7 @@ public class Main implements PlugInFilter, Measurements {
                 //Pyf = Pyf.*(Pyf>sigma^2)+sigma^2*(Pyf<=sigma^2);
                 if (Pyf[i][j] > sigmaPower) {
                 } else {
-                    Pyf[i][j] = Pyf[i][j] * sigmaPower;
+                    Pyf[i][j] = sigmaPower;
                 }
                 //Gf = iHf.*(Pyf-sigma^2)./(Pyf-(1-alpha)*sigma^2);
                 Gf[i][j] = (iHf[i][j] * (Pyf[i][j] - sigmaPower))
