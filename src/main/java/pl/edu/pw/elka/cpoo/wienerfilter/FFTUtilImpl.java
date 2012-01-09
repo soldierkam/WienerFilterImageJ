@@ -47,6 +47,11 @@ public class FFTUtilImpl implements Measurements, FFTUtil{
             imgOut = fft.crop();
         }
         int bitDepth = fft.originalBitDepth > 0 ? fft.originalBitDepth : imgBitDepth;
+        if (bitDepth != 24 && fft.originalColorModel != null) {
+            imgOut.setColorModel(fft.originalColorModel);
+        }
+        LOG.debug("Output color model " + imgOut.getColorModel());
+        
         switch (bitDepth) {
             case 8:
                 imgOut = imgOut.convertToByte(false);
@@ -58,16 +63,13 @@ public class FFTUtilImpl implements Measurements, FFTUtil{
                 if (fft.rgb == null) {
                     throw new IllegalStateException("RGB is null");
                 }
-                ColorProcessor rgb = (ColorProcessor) fft.rgb.duplicate();
-                rgb.setBrightness((FloatProcessor) imgOut);
-                imgOut = rgb;
+                //ColorProcessor rgb = (ColorProcessor) fft.rgb.duplicate();
+                //rgb.setBrightness((FloatProcessor) imgOut);
+                //imgOut = rgb;
                 fft.rgb = null;
                 break;
             case 32:
                 break;
-        }
-        if (bitDepth != 24 && fft.originalColorModel != null) {
-            imgOut.setColorModel(fft.originalColorModel);
         }
         LOG.info("FFT: done");
         return imgOut;
@@ -89,6 +91,7 @@ public class FFTUtilImpl implements Measurements, FFTUtil{
         }
         fht.originalBitDepth = imgBitDepth;
         fht.originalColorModel = ip.getColorModel();
+        LOG.debug("Input color model " + fht.originalColorModel.toString());
         return fht;
     }
 

@@ -20,8 +20,12 @@ public class Main implements PlugInFilter, Measurements {
     private final static Logger LOG = LoggerFactory.getLogger(Main.class);
     private ImagePlus imagePlus;
     private boolean debug = true;
+    private static double sigmaOpt=1;
+    private static double gammaOpt=1;
+    private static double alphaOpt=1;
 
     public Main() {
+        LOG.debug("Create filter");
     }
 
     public void run(ImageProcessor ip) {
@@ -29,9 +33,6 @@ public class Main implements PlugInFilter, Measurements {
         FFTUtil fftUtil = new FFTUtilImpl(imagePlus.getBitDepth());
         FHT fft = fftUtil.doFFT(ip);
 
-        double sigma = 1;
-        double gamma = 1;
-        double alpha = 1;
         int[][] table = new int[10][10];
 
         for (int i = 0; i < 10; ++i) {
@@ -39,7 +40,7 @@ public class Main implements PlugInFilter, Measurements {
                 table[i][j] = 1;
             }
         }
-        fft = wierner(fft, table, sigma, gamma, alpha);
+        fft = wierner(fft, table, sigmaOpt, gammaOpt, alphaOpt);
         ImageProcessor out = fftUtil.doInvFFT(fft);
         ImagePlus outImage = new ImagePlus("Wiener out " + imagePlus.getTitle(), out);
         outImage.setCalibration(imagePlus.getCalibration());
@@ -75,7 +76,7 @@ public class Main implements PlugInFilter, Measurements {
 
         for (int i = 0; i < x; ++i) {
             for (int j = 0; j < y; ++j) {
-                
+
                 //sHf = Hf.*(abs(Hf)>0)+1/gamma*(abs(Hf)==0);
                 if (Hf[i][j] == 0) {
                     sHf[i][j] = 1 / gamma;
@@ -153,11 +154,25 @@ public class Main implements PlugInFilter, Measurements {
         GenericDialog gd = new GenericDialog("Wiena Filter Options");
         gd.setInsets(0, 20, 0);
         gd.addCheckbox("Debug", debug);
+        LOG.info("gamma=" + gammaOpt + " sigma=" + sigmaOpt + " alpha=" + alphaOpt);
+        gd.addNumericField("sigma", this.sigmaOpt, 3);
+        gd.addNumericField("alpha", this.alphaOpt, 3);
+        gd.addNumericField("gamma", this.gammaOpt, 3);
         gd.showDialog();
         if (gd.wasCanceled()) {
             return;
         }
         debug = gd.getNextBoolean();
+        sigmaOpt = gd.getNextNumber();
+        alphaOpt = gd.getNextNumber();        
+        gammaOpt = gd.getNextNumber();
+        if(gammaOpt == 0.){
+            String msg = "Gamma cannot be zero";
+            LOG.warn(msg);
+            IJ.showMessage(msg);
+            gammaOpt = 1;
+        }
+        LOG.info("gamma=" + gammaOpt + " sigma=" + sigmaOpt + " alpha=" + alphaOpt);
     }
 
     static protected double[][] getFloatPixels(FloatProcessor ip) {
@@ -174,15 +189,13 @@ public class Main implements PlugInFilter, Measurements {
 
     /* set block of float pixels */
     static protected void setFloatPixels(FloatProcessor ip, double[][] dp) {
-        FloatProcessor fp = new FloatProcessor(dp.length, dp[0].length);
-        float[] pix = new float[dp.length * dp[0].length];
+        float[] pix = new float[ip.getWidth() * ip.getHeight()];
         for (int j = 0; j < dp.length; j++) {
             int offs = j * dp.length;
             for (int i = 0; i < dp.length; i++) {
                 pix[offs + i] = (float) (dp[i][j]);
             }
         }
-        fp.setPixels(pix);
-        ip.insert(fp, 0, 0);
+        ip.setPixels(pix);
     }
 }
