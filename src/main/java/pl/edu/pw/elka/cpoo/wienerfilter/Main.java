@@ -11,6 +11,9 @@ import ij.process.ImageProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import pl.edu.pw.elka.cpoo.wienerfilter.FFTUtil;
+import pl.edu.pw.elka.cpoo.wienerfilter.FFTUtilImpl;
+
 /**
  *
  * @author soldier
@@ -23,28 +26,98 @@ public class Main implements PlugInFilter, Measurements {
     private static double sigmaOpt=1;
     private static double gammaOpt=1;
     private static double alphaOpt=1;
-
+    private boolean debug = false;
+	private int maskv = 16;
+	private int mask = 10;
+	private double sigma = 1;
+	private double gamma = 1;
+	private double K = 0;
+	private double std = 5.0;
     public Main() {
         LOG.debug("Create filter");
     }
 
     public void run(ImageProcessor ip) {
 
-        FFTUtil fftUtil = new FFTUtilImpl(imagePlus.getBitDepth());
-        FHT fft = fftUtil.doFFT(ip);
+    	GenericDialog gd = new GenericDialog("Wiena Filter Options");
+		gd.setInsets(0, 20, 0);
+		gd.addNumericField("K: ", K, 1);
+		gd.addNumericField("Std: ", std, 1);
+		gd.addNumericField("Blur size: ", mask, 9);
+		gd.addCheckbox("Blur", debug);
+		gd.showDialog();
 
-        int[][] table = new int[10][10];
+		if (gd.wasCanceled()) {
+			return;
+		}
 
-        for (int i = 0; i < 10; ++i) {
-            for (int j = 0; j < 10; ++j) {
-                table[i][j] = 1;
-            }
-        }
-        fft = wierner(fft, table, sigmaOpt, gammaOpt, alphaOpt);
-        ImageProcessor out = fftUtil.doInvFFT(fft);
-        ImagePlus outImage = new ImagePlus("Wiener out " + imagePlus.getTitle(), out);
-        outImage.setCalibration(imagePlus.getCalibration());
-        outImage.show();
+		K = (double) gd.getNextNumber();
+		std = (double) gd.getNextNumber();
+		mask = (int) gd.getNextNumber();
+		debug = gd.getNextBoolean();
+
+		int x = mask; // ip.getWidth();
+		int y = mask;// ip.getHeight();
+		float[] table = new float[x * y];
+
+		double dist, blur, blur2;
+		int nr = mask;
+		int nc = mask;
+		for (int i = 0; i < x; i++) {
+			for (int j = 0; j < y; j++) {
+
+				dist = ((i - nc / 2) * (i - nc / 2) + (j - nr / 2)
+						* (j - nr / 2));
+				blur = Math.exp(-dist / (2 * std * std));
+
+				table[i + j * y] = (float) blur;
+
+			}
+		}
+
+		FloatProcessor h = new FloatProcessor(ip.getWidth(), ip.getHeight());
+		FloatProcessor temp = new FloatProcessor(nr, nc);
+		temp.setPixels(table);
+		h.insert(temp, 0, 0);
+
+		FFTUtil fftUtil = new FFTUtilImpl(imagePlus.getBitDepth());
+		FHT fft = fftUtil.doFFT(ip);
+		FHT hBlur = fftUtil.doFFT(h);
+		FHT hBlur2 = fftUtil.doFFT(h);
+
+		if (debug) {
+
+			ImagePlus outImage1 = new ImagePlus("Gaussian Blur filter"
+					+ imagePlus.getTitle() + "std:" + std + "size" + mask, h);
+			outImage1.setCalibration(imagePlus.getCalibration());
+			outImage1.show();
+
+			fft = fft.multiply(hBlur);
+
+			ImageProcessor out = fftUtil.doInvFFT(fft);
+
+			ImagePlus outImage = new ImagePlus("Blurred out "
+					+ imagePlus.getTitle() + "std:" + std + "size" + mask,
+					out);
+			outImage.setCalibration(imagePlus.getCalibration());
+			outImage.show();
+		} else {
+			FHT fft2 = fftUtil.doFFT(ip);
+			fft2 = fft2.divide(hBlur);
+			if (K > 0) {
+				hBlur2.add(K);
+				hBlur = hBlur.divide(hBlur2);
+				fft2= fft2.multiply(hBlur);
+			}
+
+			ImageProcessor out2 = fftUtil.doInvFFT(fft2);
+
+			ImagePlus outImage2 = new ImagePlus("Wiener out "
+					+ imagePlus.getTitle() + "K:" + K,
+					out2);
+			outImage2.setCalibration(imagePlus.getCalibration());
+			outImage2.show();
+		}
         IJ.showProgress(1.0);
     }
 
