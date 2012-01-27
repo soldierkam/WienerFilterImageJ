@@ -2,11 +2,7 @@ package pl.edu.pw.elka.cpoo.wienerfilter;
 
 import ij.Undo;
 import ij.measure.Measurements;
-import ij.process.ColorProcessor;
-import ij.process.FHT;
-import ij.process.FloatProcessor;
-import ij.process.ImageProcessor;
-import ij.process.ImageStatistics;
+import ij.process.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,7 +30,7 @@ public class FFTUtilImpl implements Measurements, FFTUtil{
         LOG.info("FFT: done");
         return fft;
     }
-
+    
     @Override
     public ImageProcessor doInvFFT(FHT imageProcessor) {
         FHT fft = imageProcessor;
@@ -63,9 +59,9 @@ public class FFTUtilImpl implements Measurements, FFTUtil{
                 if (fft.rgb == null) {
                     throw new IllegalStateException("RGB is null");
                 }
-                //ColorProcessor rgb = (ColorProcessor) fft.rgb.duplicate();
-                //rgb.setBrightness((FloatProcessor) imgOut);
-                //imgOut = rgb;
+                ColorProcessor rgb = (ColorProcessor) fft.rgb.duplicate();
+                rgb.setBrightness((FloatProcessor) imgOut);
+                imgOut = rgb;
                 fft.rgb = null;
                 break;
             case 32:
@@ -75,15 +71,15 @@ public class FFTUtilImpl implements Measurements, FFTUtil{
         return imgOut;
     }
 
-    private FHT newFHT(ImageProcessor ip) {
-        FHT fht;
+    private FFTResult newFHT(ImageProcessor ip) {
+        FFTResult fht;
         if (ip instanceof ColorProcessor) {
             LOG.info("Extract color");
             ImageProcessor ip2 = ((ColorProcessor) ip).getBrightness();
-            fht = new FHT(pad(ip2));
+            fht = new FFTResult(pad(ip2));
             fht.rgb = (ColorProcessor) ip.duplicate(); // save so we can later update the brightness
         } else {
-            fht = new FHT(pad(ip));
+            fht = new FFTResult(pad(ip));
         }
         if (padded) {
             fht.originalWidth = originalWidth;

@@ -11,9 +11,6 @@ import ij.process.ImageProcessor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import pl.edu.pw.elka.cpoo.wienerfilter.FFTUtil;
-import pl.edu.pw.elka.cpoo.wienerfilter.FFTUtilImpl;
-
 /**
  *
  * @author soldier
@@ -22,197 +19,118 @@ public class Main implements PlugInFilter, Measurements {
 
     private final static Logger LOG = LoggerFactory.getLogger(Main.class);
     private ImagePlus imagePlus;
-    private boolean debug = true;
-    private static double sigmaOpt=1;
-    private static double gammaOpt=1;
-    private static double alphaOpt=1;
-    private boolean debug = false;
-	private int maskv = 16;
-	private int mask = 10;
-	private double sigma = 1;
-	private double gamma = 1;
-	private double K = 0;
-	private double std = 5.0;
+    private boolean blur = false;
+    private static int blurMaskSize = 5;
+    private static double K = 0;
+    private static double std = 2.0;
+
     public Main() {
         LOG.debug("Create filter");
     }
 
+    @Override
     public void run(ImageProcessor ip) {
+        final GenericDialog gd = new GenericDialog("Wiena Filter Options");
+        gd.addNumericField("K: ", K, 1);
+        gd.addNumericField("Std: ", std, 1);
+        gd.addNumericField("Blur mask size: ", blurMaskSize, 2);
+        gd.addCheckbox("Blur", blur);
+        gd.showDialog();
 
-    	GenericDialog gd = new GenericDialog("Wiena Filter Options");
-		gd.setInsets(0, 20, 0);
-		gd.addNumericField("K: ", K, 1);
-		gd.addNumericField("Std: ", std, 1);
-		gd.addNumericField("Blur size: ", mask, 9);
-		gd.addCheckbox("Blur", debug);
-		gd.showDialog();
+        if (gd.wasCanceled()) {
+            return;
+        }
 
-		if (gd.wasCanceled()) {
-			return;
-		}
+        K = gd.getNextNumber();
+        std = gd.getNextNumber();
+        blurMaskSize = (int) gd.getNextNumber();
+        blur = gd.getNextBoolean();
 
-		K = (double) gd.getNextNumber();
-		std = (double) gd.getNextNumber();
-		mask = (int) gd.getNextNumber();
-		debug = gd.getNextBoolean();
+        final FFTUtil fftUtil = new FFTUtilImpl(imagePlus.getBitDepth());
+        final FloatProcessor blurMask = calcBlurMask(ip.getWidth(), ip.getHeight(), std);
+        FHT fft = fftUtil.doFFT(ip);
 
-		int x = mask; // ip.getWidth();
-		int y = mask;// ip.getHeight();
-		float[] table = new float[x * y];
+        final String windowTitle;
+        if (blur) {
 
-		double dist, blur, blur2;
-		int nr = mask;
-		int nc = mask;
-		for (int i = 0; i < x; i++) {
-			for (int j = 0; j < y; j++) {
+            ImagePlus outImage1 = new ImagePlus("Gaussian Blur Mask "
+                    + imagePlus.getTitle() + "std:" + std + "size" + blurMaskSize, blurMask);
+            outImage1.setCalibration(imagePlus.getCalibration());
+            outImage1.show();
 
-				dist = ((i - nc / 2) * (i - nc / 2) + (j - nr / 2)
-						* (j - nr / 2));
-				blur = Math.exp(-dist / (2 * std * std));
+            FHT fftOfBlurMask = calcFFT(blurMask);
+            fft = fft.multiply(fftOfBlurMask);
+            windowTitle = "Blurred out " + imagePlus.getTitle() + "std:" + std + "size" + blurMaskSize;
 
-				table[i + j * y] = (float) blur;
+        } else {
+            FHT fft2 = fftUtil.doFFT(ip);
+            FHT fftOfBlurMask = calcFFT(blurMask);
+            FHT fftOfBlurMask2 = calcFFT(blurMask);
+            fft = fft2.divide(fftOfBlurMask);
+            if (K > 0) {
+                fftOfBlurMask2.add(K);
+                fftOfBlurMask = fftOfBlurMask.divide(fftOfBlurMask2);
+                fft = fft.multiply(fftOfBlurMask);
+            }
 
-			}
-		}
+            windowTitle = "Wiener out " + imagePlus.getTitle() + "K:" + K;
+        }
 
-		FloatProcessor h = new FloatProcessor(ip.getWidth(), ip.getHeight());
-		FloatProcessor temp = new FloatProcessor(nr, nc);
-		temp.setPixels(table);
-		h.insert(temp, 0, 0);
+        final ImageProcessor out = fftUtil.doInvFFT(fft);
 
-		FFTUtil fftUtil = new FFTUtilImpl(imagePlus.getBitDepth());
-		FHT fft = fftUtil.doFFT(ip);
-		FHT hBlur = fftUtil.doFFT(h);
-		FHT hBlur2 = fftUtil.doFFT(h);
-
-		if (debug) {
-
-			ImagePlus outImage1 = new ImagePlus("Gaussian Blur filter"
-					+ imagePlus.getTitle() + "std:" + std + "size" + mask, h);
-			outImage1.setCalibration(imagePlus.getCalibration());
-			outImage1.show();
-
-			fft = fft.multiply(hBlur);
-
-			ImageProcessor out = fftUtil.doInvFFT(fft);
-
-			ImagePlus outImage = new ImagePlus("Blurred out "
-					+ imagePlus.getTitle() + "std:" + std + "size" + mask,
-					out);
-			outImage.setCalibration(imagePlus.getCalibration());
-			outImage.show();
-		} else {
-			FHT fft2 = fftUtil.doFFT(ip);
-			fft2 = fft2.divide(hBlur);
-			if (K > 0) {
-				hBlur2.add(K);
-				hBlur = hBlur.divide(hBlur2);
-				fft2= fft2.multiply(hBlur);
-			}
-
-			ImageProcessor out2 = fftUtil.doInvFFT(fft2);
-
-			ImagePlus outImage2 = new ImagePlus("Wiener out "
-					+ imagePlus.getTitle() + "K:" + K,
-					out2);
-			outImage2.setCalibration(imagePlus.getCalibration());
-			outImage2.show();
-		}
+        ImagePlus outImage = new ImagePlus(windowTitle, out);
+        outImage.setCalibration(imagePlus.getCalibration());
+        outImage.show();
         IJ.showProgress(1.0);
     }
 
-    public FHT wierner(FHT fft, int[][] ht, double sigma,
-            double gamma, double alpha) {
-
-        int x = fft.getWidth();
-        int y = fft.getHeight();
-        double sigmaPower = Math.pow(sigma, 2);
-        FloatProcessor h = new FloatProcessor(x, y);
-
-        double[][] table = new double[10][10];
-        for (int i = 0; i < 10; ++i) {
-            for (int j = 0; j < 10; ++j) {
-                table[i][j] = ht[i][j] / 16;
-            }
-        }
-        setFloatPixels(h, table);
-
-        double[][] Yf = getFloatPixels(fft);
-        double[][] Hf = getFloatPixels(new FFTUtilImpl(0).doFFT(h));
-
-        double[][] sHf = new double[x][y];
-        double[][] iHf = new double[x][y];
-        double[][] Pyf = new double[x][y];
-        double[][] eXf = new double[x][y];
-        double[][] Gf = new double[x][y];
-
-
-        for (int i = 0; i < x; ++i) {
-            for (int j = 0; j < y; ++j) {
-
-                //sHf = Hf.*(abs(Hf)>0)+1/gamma*(abs(Hf)==0);
-                if (Hf[i][j] == 0) {
-                    sHf[i][j] = 1 / gamma;
-                } else {
-                    sHf[i][j] = Hf[i][j];
-                }
-                iHf[i][j] = 1 / sHf[i][j];
-
-                //iHf = iHf.*(abs(Hf)*gamma>1)+gamma*abs(sHf).*iHf.*(abs(sHf)*gamma<=1); 
-                if (Math.abs(Hf[i][j]) * gamma > 1) {
-                    //iHf[i][j] = iHf[i][j] * Hf[i][j];
-                } else {
-                    iHf[i][j] = gamma * Math.abs(sHf[i][j]) * iHf[i][j];
-                }
-
-                //Pyf = abs(Yf).^2/SIZE^2;
-                Pyf[i][j] = Math.pow(Math.abs(Yf[i][j]), 2) / (x * x);
-
-                //Pyf = Pyf.*(Pyf>sigma^2)+sigma^2*(Pyf<=sigma^2);
-                if (Pyf[i][j] > sigmaPower) {
-                } else {
-                    Pyf[i][j] = sigmaPower;
-                }
-                //Gf = iHf.*(Pyf-sigma^2)./(Pyf-(1-alpha)*sigma^2);
-                Gf[i][j] = (iHf[i][j] * (Pyf[i][j] - sigmaPower))
-                        / (Pyf[i][j] - ((1 - alpha) * sigmaPower));
-
-                eXf[i][j] = Gf[i][j] * Yf[i][j];
-
-            }
-        }
-
-        /*
-         * 
-         * 
-         * Gf = iHf.*(Pyf-sigma^2)./(Pyf-(1-alpha)*sigma^2);
-         * 
-         * % max(max(abs(Gf).^2)) % should be equal to gamma^2 % Restorated
-         * image without denoising eXf = Gf.*Yf; ex = real(ifft2(eXf));
-         * 
-         * 
-         * 
-         * ewx = wienerFilter(real,table,sigma,gamma,alpha);
-         * 
-         * sHf = Hf.*(abs(Hf)>0)+1/gamma*(abs(Hf)==0); wartosci z 0 +1
-         */
-
-        setFloatPixels(fft, eXf);
-        return fft;
-
+    private FHT calcFFT(ImageProcessor imgProc) {
+        return new FFTUtilImpl(imagePlus.getBitDepth()).doFFT(imgProc);
     }
 
+    private FloatProcessor calcBlurMask(int width, int height, double std) {
+        final int x = blurMaskSize;
+        final int y = blurMaskSize;
+        float[] table = new float[x * y];
+
+        int nr = blurMaskSize;
+        int nc = blurMaskSize;
+        double acum = 0;
+        for (int i = 0; i < x; i++) {
+            for (int j = 0; j < y; j++) {
+                final double dist;
+
+                dist = ((i - nc / 2) * (i - nc / 2) + (j - nr / 2) * (j - nr / 2));
+
+                table[i + j * y] = (float) Math.exp(-dist / (2 * std * std));
+                acum += table[i + j * y];
+            }
+        }
+
+        for (int i = 0; i < x; i++) {
+            for (int j = 0; j < y; j++) {
+                table[i + j * y] /= acum;
+            }
+        }
+        
+        FloatProcessor h = new FloatProcessor(width, height);
+        FloatProcessor temp = new FloatProcessor(nr, nc);
+        temp.setPixels(table);
+        h.insert(temp, 0, 0);
+        return h;
+    }
+
+    @Override
     public int setup(String string, ImagePlus ip) {
         LOG.info("Setup plugin");
         this.imagePlus = ip;
         if ("about".equals(string)) {
             return DONE;
         }
-        if ("options".equals(string)) {
-            showDialog();
-            return DONE;
-        }
         if ("run".equals(string)) {
+            if (ip == null) {
+                return DONE;
+            }
             run(ip.getProcessor());
             return DONE;
         }
@@ -220,32 +138,6 @@ public class Main implements PlugInFilter, Measurements {
             LOG.warn("Uknknown argument: " + string);
         }
         return DOES_RGB;
-    }
-
-    void showDialog() {
-        LOG.info("Show dialog");
-        GenericDialog gd = new GenericDialog("Wiena Filter Options");
-        gd.setInsets(0, 20, 0);
-        gd.addCheckbox("Debug", debug);
-        LOG.info("gamma=" + gammaOpt + " sigma=" + sigmaOpt + " alpha=" + alphaOpt);
-        gd.addNumericField("sigma", this.sigmaOpt, 3);
-        gd.addNumericField("alpha", this.alphaOpt, 3);
-        gd.addNumericField("gamma", this.gammaOpt, 3);
-        gd.showDialog();
-        if (gd.wasCanceled()) {
-            return;
-        }
-        debug = gd.getNextBoolean();
-        sigmaOpt = gd.getNextNumber();
-        alphaOpt = gd.getNextNumber();        
-        gammaOpt = gd.getNextNumber();
-        if(gammaOpt == 0.){
-            String msg = "Gamma cannot be zero";
-            LOG.warn(msg);
-            IJ.showMessage(msg);
-            gammaOpt = 1;
-        }
-        LOG.info("gamma=" + gammaOpt + " sigma=" + sigmaOpt + " alpha=" + alphaOpt);
     }
 
     static protected double[][] getFloatPixels(FloatProcessor ip) {
@@ -260,7 +152,9 @@ public class Main implements PlugInFilter, Measurements {
         return pix2d;
     }
 
-    /* set block of float pixels */
+    /*
+     * set block of float pixels
+     */
     static protected void setFloatPixels(FloatProcessor ip, double[][] dp) {
         float[] pix = new float[ip.getWidth() * ip.getHeight()];
         for (int j = 0; j < dp.length; j++) {
