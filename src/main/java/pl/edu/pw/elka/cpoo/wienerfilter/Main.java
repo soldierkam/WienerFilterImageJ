@@ -63,9 +63,11 @@ public class Main implements PlugInFilter, Measurements {
             windowTitle = "Blurred out " + imagePlus.getTitle() + "std:" + std + "size" + blurMaskSize;
 
         } else {
-            FHT fft2 = fftUtil.doFFT(ip);
+        	FHT fft2 = fftUtil.doFFT(ip);
             FHT fftOfBlurMask = calcFFT(blurMask);
+            fftOfBlurMask = fftOfBlurMask.multiply(fftOfBlurMask);
             FHT fftOfBlurMask2 = calcFFT(blurMask);
+            fftOfBlurMask2 = fftOfBlurMask2.multiply(fftOfBlurMask2);
             fft = fft2.divide(fftOfBlurMask);
             if (K > 0) {
                 fftOfBlurMask2.add(K);
