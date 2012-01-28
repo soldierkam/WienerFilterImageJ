@@ -19,7 +19,7 @@ public class Main implements PlugInFilter, Measurements {
 
     private final static Logger LOG = LoggerFactory.getLogger(Main.class);
     private ImagePlus imagePlus;
-    private boolean blur = false;
+    private static boolean blur = false;
     private static int blurMaskSize = 5;
     private static double K = 0;
     private static double std = 2.0;
@@ -52,7 +52,7 @@ public class Main implements PlugInFilter, Measurements {
 
         final String windowTitle;
         if (blur) {
-
+            LOG.info("Bluring");
             ImagePlus outImage1 = new ImagePlus("Gaussian Blur Mask "
                     + imagePlus.getTitle() + "std:" + std + "size" + blurMaskSize, blurMask);
             outImage1.setCalibration(imagePlus.getCalibration());
@@ -63,6 +63,7 @@ public class Main implements PlugInFilter, Measurements {
             windowTitle = "Blurred out " + imagePlus.getTitle() + "std:" + std + "size" + blurMaskSize;
 
         } else {
+            LOG.info("Debluring");
             FHT fft2 = fftUtil.doFFT(ip);
             FHT fftOfBlurMask = calcFFT(blurMask);
             FHT fftOfBlurMask2 = calcFFT(blurMask);
@@ -116,7 +117,10 @@ public class Main implements PlugInFilter, Measurements {
         FloatProcessor h = new FloatProcessor(width, height);
         FloatProcessor temp = new FloatProcessor(nr, nc);
         temp.setPixels(table);
-        h.insert(temp, 0, 0);
+        h.insert(temp, -nr/2, -nc/2);//top-left
+        h.insert(temp, width-nr/2, -nc/2);//top-right
+        h.insert(temp, -nr/2, height-nc/2);//bottom-left
+        h.insert(temp, width-nr/2, height-nc/2);//bottom-right
         return h;
     }
 
