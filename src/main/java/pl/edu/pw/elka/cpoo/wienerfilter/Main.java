@@ -20,9 +20,9 @@ public class Main implements PlugInFilter, Measurements {
     private final static Logger LOG = LoggerFactory.getLogger(Main.class);
     private ImagePlus imagePlus;
     private static boolean blur = false;
-    private static int blurMaskSize = 10;
+    private static int blurMaskSize = 9;
     private static double K = 0;
-    private static double std = 5.0;
+    private static double std = 2.0;
 
     public Main() {
         LOG.debug("Create filter");
@@ -31,7 +31,7 @@ public class Main implements PlugInFilter, Measurements {
     @Override
     public void run(ImageProcessor ip) {
         final GenericDialog gd = new GenericDialog("Wiena Filter Options");
-        gd.addNumericField("K: ", K, 1);
+        gd.addNumericField("K: ", K, 3);
         gd.addNumericField("Std: ", std, 1);
         gd.addNumericField("Blur mask size: ", blurMaskSize, 2);
         gd.addCheckbox("Blur", blur);
@@ -63,12 +63,8 @@ public class Main implements PlugInFilter, Measurements {
             windowTitle = "Blurred out " + imagePlus.getTitle() + "std:" + std + "size" + blurMaskSize;
 
         } else {
-//<<<<<<< HEAD
             LOG.info("Debluring");
-//            FHT fft2 = fftUtil.doFFT(ip);
-//=======
-        	FHT fft2 = fftUtil.doFFT(ip);
-//>>>>>>> 0f9807c8cac6960201342d9198eee1d6dd1d4349
+            FHT fft2 = fftUtil.doFFT(ip);
             FHT fftOfBlurMask = calcFFT(blurMask);
             fftOfBlurMask = fftOfBlurMask.multiply(fftOfBlurMask);
             FHT fftOfBlurMask2 = calcFFT(blurMask);
@@ -123,11 +119,11 @@ public class Main implements PlugInFilter, Measurements {
         FloatProcessor h = new FloatProcessor(width, height);
         FloatProcessor temp = new FloatProcessor(nr, nc);
         temp.setPixels(table);
-        h.insert(temp, 0, 0);
-        //h.insert(temp, -nr/2, -nc/2);//top-left
-        //h.insert(temp, width-nr/2, -nc/2);//top-right
-        //h.insert(temp, -nr/2, height-nc/2);//bottom-left
-        //h.insert(temp, width-nr/2, height-nc/2);//bottom-right
+        //h.insert(temp, 0, 0);
+        h.insert(temp, -nr/2, -nc/2);//top-left
+        h.insert(temp, width-nr/2, -nc/2);//top-right
+        h.insert(temp, -nr/2, height-nc/2);//bottom-left
+        h.insert(temp, width-nr/2, height-nc/2);//bottom-right
         return h;
     }
 
