@@ -65,11 +65,12 @@ public class Main implements PlugInFilter, Measurements {
         } else {
             LOG.info("Debluring");
             FHT fft2 = fftUtil.doFFT(ip);
+            FHT fftOfBlurMask1 = calcFFT(blurMask);
             FHT fftOfBlurMask = calcFFT(blurMask);
             fftOfBlurMask = fftOfBlurMask.multiply(fftOfBlurMask);
             FHT fftOfBlurMask2 = calcFFT(blurMask);
             fftOfBlurMask2 = fftOfBlurMask2.multiply(fftOfBlurMask2);
-            fft = fft2.divide(fftOfBlurMask);
+            fft = fft2.divide(fftOfBlurMask1);
             if (K > 0) {
                 fftOfBlurMask2.add(K);
                 fftOfBlurMask = fftOfBlurMask.divide(fftOfBlurMask2);
